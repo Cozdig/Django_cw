@@ -11,6 +11,7 @@
     <h5 class="my-0 mr-md-auto font-weight-normal">MLMS</h5>
     <nav class="ms-5">
         <a class="p-2 btn btn-outline-primary" href="/mailing/">Все получатели</a>
+        <a class="p-2 btn btn-outline-primary" href="/mailing/messages/">Все сообщения</a>
         {% comment %}
         {% if user.is_authenticated %}
             <form method="post" action="{% url 'users:logout' %}" style="display: inline;">
