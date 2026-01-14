@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.core.mail import send_mail
 
 
 # Create your models here.
@@ -29,6 +31,32 @@ class Message(models.Model):
         verbose_name = 'сообщение'
         verbose_name_plural = 'сообщения'
         ordering = ['topic', ]
+
+
+class MailingLog(models.Model):
+
+    SUCCESS = "Успешно"
+    FAILED = "Не успешно"
+
+    STATUS_CHOICES = [
+        (SUCCESS, 'Успешно'),
+        (FAILED, 'Не успешно'),
+    ]
+
+    mailing = models.ForeignKey('Mailings', on_delete=models.CASCADE, related_name="logs", verbose_name="Рассылка")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, verbose_name="Статус попытки")
+    error_message = models.TextField(blank=True, null=True, verbose_name='Сообщение об ошибке')
+    attempt_time = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время попытки')
+    server_response = models.TextField(blank=True, null=True, verbose_name="Ответ почтового сервера")
+
+    class Meta:
+        verbose_name = 'попытка рассылки'
+        verbose_name_plural = 'попытки рассылок'
+        ordering = ['attempt_time', ]
+
+    def __str__(self):
+        return f"Попытка {self.attempt_time} - {self.status}"
+
 
 class Mailings(models.Model):
 
@@ -72,3 +100,45 @@ class Mailings(models.Model):
                 self.save(update_fields=['status'])
 
         return new_status
+
+    def can_send_now(self):
+        now = timezone.now()
+        return self.start_time <= now <= self.end_time
+
+    def send_mailing(self):
+        if not self.can_send_now():
+            return 0, 0, "Время не в диапазоне"
+
+        sent = 0
+        total = self.recipients.count()
+
+        if total == 0:
+            return 0, 0, "Нет получателей"
+
+        for recipient in self.recipients.all():
+            try:
+                send_mail(
+                    subject=self.message.topic,
+                    message=self.message.content,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[recipient.email],
+                    fail_silently=False
+                )
+
+                MailingLog.objects.create(
+                    mailing=self,
+                    status=MailingLog.SUCCESS,
+                    server_response='Письмо отправлено успешно'
+                )
+                sent += 1
+
+            except Exception as e:
+                MailingLog.objects.create(
+                    mailing=self,
+                    status=MailingLog.FAILED,
+                    server_response=str(e)
+                )
+
+        return sent, total, f"Отправлено {sent} из {total}"
+
+

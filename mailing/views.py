@@ -1,5 +1,7 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import DetailView, DeleteView, ListView
 from django.views.generic.edit import CreateView, UpdateView
 
@@ -127,3 +129,22 @@ class MailingsDeleteView(DeleteView):
     model = Mailings
     template_name = 'mailing/mailing_confirm_delete.html'
     success_url = reverse_lazy("mailing:mailings_list")
+
+# MailingLog
+class SendMailingView(View):
+    def post(self, request, pk):
+        mailing = get_object_or_404(Mailings, pk=pk)
+
+        mailing.update_status()
+        if mailing.status != mailing.STARTED:
+            messages.error(request, 'Можно отправлять только активные рассылки')
+            return redirect('mailing:mailing_detail', pk=pk)
+
+        sent, total, message = mailing.send_mailing()
+
+        if sent > 0:
+            messages.success(request, message)
+        else:
+            messages.warning(request, message)
+
+        return redirect('mailing:mailing_detail', pk=pk)

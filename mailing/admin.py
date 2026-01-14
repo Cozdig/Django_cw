@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Recipient, Message, Mailings
+from .models import Recipient, Message, Mailings, MailingLog
 
 
 # Register your models here.
@@ -20,4 +20,10 @@ class RecipientAdmin(admin.ModelAdmin):
     list_display = ('start_time', 'end_time', 'status')
     list_filter = ('start_time',)
     search_fields = ('start_time',)
+
+@admin.register(MailingLog)
+class RecipientAdmin(admin.ModelAdmin):
+    list_display = ('status', 'error_message', 'attempt_time')
+    list_filter = ('status',)
+    search_fields = ('status',)
 
