@@ -1,9 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.template.context_processors import request
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DetailView, DeleteView, ListView
 from django.views.generic.edit import CreateView, UpdateView
+from django.db.models import Count
+from django.utils import timezone
 
 from mailing.forms import RecipientForm, MessageForm, MailingForm
 
@@ -148,3 +151,26 @@ class SendMailingView(View):
             messages.warning(request, message)
 
         return redirect('mailing:mailing_detail', pk=pk)
+
+
+# HomePage
+def home_view(request):
+    now = timezone.now()
+
+    total_mailings = Mailings.objects.count()
+
+    active_mailings = Mailings.objects.filter(
+        status=Mailings.STARTED,
+        start_time__lte=now,
+        end_time__gte=now
+    ).count()
+
+    unique_recipients = Recipient.objects.distinct().count()
+
+    context = {
+        'total_mailings': total_mailings,
+        'active_mailings': active_mailings,
+        'unique_recipients': unique_recipients,
+    }
+
+    return render(request, 'mailing/home.html', context)
